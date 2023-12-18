@@ -1,12 +1,16 @@
-FROM golang:1.21
 
+FROM golang:1.21-alpine as builder
+RUN apk update && apk add --no-cache git
 WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
 
-COPY go.mod .
-COPY main.go .
-
-RUN go get
-RUN go build -o bin .
-
-ENTRYPOINT [ "/app/bin" ]
+FROM alpine:3.19
+RUN apk --no-cache add ca-certificates
+WORKDIR /root/
+COPY --from=builder /app/main .
+ENV GIN_MODE=release
 EXPOSE 8080
+CMD ["./main"]
